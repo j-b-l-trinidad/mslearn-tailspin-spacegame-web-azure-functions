@@ -11,13 +11,13 @@ stages:
   - job: 'Build'
     displayName: 'Build job'
     pool:
-      vmImage: 'ubuntu-20.04'
+      vmImage: 'ubuntu-22.04'
       demands:
       - npm
 
     variables:
       wwwrootDir: 'Tailspin.SpaceGame.Web/wwwroot'
-      dotnetSdkVersion: '6.0.x'
+      dotnetSdkVersion: '8.0.x'
 
     steps:
     - task: UseDotNet@2
@@ -71,36 +71,39 @@ stages:
   jobs:
   - deployment: Deploy
     pool:
-      vmImage: 'ubuntu-20.04'
-    environment: spike
+      vmImage: 'ubuntu-22.04'
+    environment: spike-env-001
     variables:
-    - group: Release
+    - group: ADOWebAppAzureFunctionVariables
     strategy:
       runOnce:
         deploy:
           steps:
           - download: current
             artifact: drop
+
           - task: AzureWebApp@1
             displayName: 'Azure App Service Deploy: website'
             inputs:
-              azureSubscription: 'Resource Manager - Tailspin - Space Game'
+              azureSubscription: 'ado-function-app-service-connection'
               appName: '$(WebAppName)'
               appType: webAppLinux
               package: '$(Pipeline.Workspace)/drop/$(buildConfiguration)/Tailspin.SpaceGame.Web.zip'
+
           - task: AzureFunctionApp@1
             displayName: 'Azure Function Deploy: leaderboard'
             inputs:
-              azureSubscription: 'Resource Manager - Tailspin - Space Game'
+              azureSubscription: 'ado-function-app-service-connection'
               appType: functionAppLinux
               appName: '$(LeaderboardAppName)'
               package: '$(Pipeline.Workspace)/drop/$(buildConfiguration)/Tailspin.SpaceGame.LeaderboardFunction.zip'
               runtimeStack: DOCKER|microsoft/azure-functions-dotnet:4
               startUpCommand: 'func azure functionapp publish $(functionAppName) --no-bundler'
+
           - task: AzureAppServiceSettings@1
             displayName: 'Update web app settings'
             inputs:
-              azureSubscription: 'Resource Manager - Tailspin - Space Game'
+              azureSubscription: 'ado-function-app-service-connection'
               appName: $(WebAppName)
               resourceGroupName: $(ResourceGroupName)
               appSettings: |
